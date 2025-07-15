@@ -1,0 +1,283 @@
+@{
+    ViewData["Title"] = "Order Management";
+}
+
+<div class="container">
+    <h1>Order Management</h1>
+    
+    <div id="authStatus" class="alert alert-warning">
+        Please log in as an admin to manage orders.
+    </div>
+
+    <div id="ordersList" class="mt-4 admin-only" style="display: none;">
+        <div class="d-flex justify-content-between mb-3">
+            <h3>All Orders</h3>
+            <button class="btn btn-primary" onclick="loadOrders()">Refresh</button>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Order ID</th>
+                        <th>Customer</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th>Total</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="ordersTableBody">
+                    <!-- Orders will be loaded here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Order Details Modal -->
+    <div class="modal fade" id="orderDetailsModal" tabindex="-1" aria-labelledby="orderDetailsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="orderDetailsModalLabel">Order Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <p><strong>Order ID:</strong> <span id="modalOrderId"></span></p>
+                            <p><strong>Customer:</strong> <span id="modalCustomerEmail"></span></p>
+                            <p><strong>Date:</strong> <span id="modalOrderDate"></span></p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Status:</strong> <span id="modalOrderStatus"></span></p>
+                            <p><strong>Total:</strong> $<span id="modalOrderTotal"></span></p>
+                            <div class="admin-only">
+                                <label for="statusSelect" class="form-label">Update Status:</label>
+                                <div class="input-group">
+                                    <select class="form-select" id="statusSelect">
+                                        <option value="Pending">Pending</option>
+                                        <option value="Processing">Processing</option>
+                                        <option value="Shipped">Shipped</option>
+                                        <option value="Delivered">Delivered</option>
+                                        <option value="Cancelled">Cancelled</option>
+                                    </select>
+                                    <button class="btn btn-primary" id="updateStatusBtn">Update</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <h6>Items</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Price</th>
+                                    <th>Quantity</th>
+                                    <th>Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody id="modalOrderItems">
+                                <!-- Order items will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            updateAuthStatus();
+            if (localStorage.getItem('jwtToken') && localStorage.getItem('userRole') === 'Admin') {
+                loadOrders();
+            }
+        });
+
+        function updateAuthStatus() {
+            const token = localStorage.getItem('jwtToken');
+            const userEmail = localStorage.getItem('userEmail');
+            const userRole = localStorage.getItem('userRole');
+            
+            if (token && userEmail) {
+                // User is logged in
+                $('#authStatus').removeClass('alert-warning').addClass('alert-success')
+                    .html(`Logged in as <strong>${userEmail}</strong> (${userRole})`);
+                
+                // Show admin-only content if user is admin
+                if (userRole === 'Admin') {
+                    $('.admin-only').show();
+                } else {
+                    $('.admin-only').hide();
+                    $('#authStatus').removeClass('alert-success').addClass('alert-warning')
+                        .html('You need admin privileges to access this page.');
+                }
+            } else {
+                // User is logged out
+                $('#authStatus').removeClass('alert-success').addClass('alert-warning')
+                    .html('Please log in as an admin to manage orders.');
+                $('.admin-only').hide();
+            }
+        }
+
+        function loadOrders() {
+            const token = localStorage.getItem('jwtToken');
+            if (!token) {
+                updateAuthStatus();
+                return;
+            }
+
+            $.ajax({
+                url: '/api/order/GetAll',
+                type: 'GET',
+                headers: {
+                    'Authorization': 'Bearer ' + token
+                },
+                success: function(orders) {
+                    renderOrders(orders);
+                },
+                error: function(xhr) {
+                    let errorMessage = 'Failed to load orders';
+                    if (xhr.responseJSON && xhr.responseJSON.error) {
+                        errorMessage = xhr.responseJSON.error;
+                    }
+                    $('#ordersTableBody').html(`<tr><td colspan="6" class="text-center text-danger">${errorMessage}</td></tr>`);
+                }
+            });
+        }
+
+        function renderOrders(orders) {
+            const tableBody = $('#ordersTableBody');
+            tableBody.empty();
+            
+            if (orders.length === 0) {
+                tableBody.html('<tr><td colspan="6" class="text-center">No orders found.</td></tr>');
+                return;
+            }
+
+            orders.forEach(order => {
+                const date = new Date(order.orderDate).toLocaleDateString();
+                const row = `
+                    <tr>
+                        <td>${order.id}</td>
+                        <td>${order.userEmail || 'Unknown'}</td>
+                        <td>${date}</td>
+                        <td><span class="badge bg-${getStatusBadgeClass(order.orderStatus)}">${order.orderStatus}</span></td>
+                        <td>$${order.totalAmount.toFixed(2)}</td>
+                        <td>
+                            <button class="btn btn-sm btn-info" onclick="viewOrderDetails(${order.id})">View Details</button>
+                        </td>
+                    </tr>
+                `;
+                tableBody.append(row);
+            });
+        }
+
+        function getStatusBadgeClass(status) {
+            switch (status.toLowerCase()) {
+                case 'pending': return 'warning';
+                case 'processing': return 'info';
+                case 'shipped': return 'primary';
+                case 'delivered': return 'success';
+                case 'cancelled': return 'danger';
+                default: return 'secondary';
+            }
+        }
+
+        function viewOrderDetails(orderId) {
+            const token = localStorage.getItem('jwtToken');
+            if (!token) return;
+
+            $.ajax({
+                url: `/api/order/GetById?id=${orderId}`,
+                type: 'GET',
+                headers: {
+                    'Authorization': 'Bearer ' + token
+                },
+                success: function(order) {
+                    // Store current order ID for status updates
+                    $('#updateStatusBtn').data('orderId', order.id);
+                    
+                    // Populate modal with order details
+                    $('#modalOrderId').text(order.id);
+                    $('#modalCustomerEmail').text(order.userEmail || 'Unknown');
+                    $('#modalOrderDate').text(new Date(order.orderDate).toLocaleDateString());
+                    $('#modalOrderStatus').text(order.orderStatus);
+                    $('#modalOrderTotal').text(order.totalAmount.toFixed(2));
+                    
+                    // Set current status in dropdown
+                    $('#statusSelect').val(order.orderStatus);
+                    
+                    // Populate order items
+                    const itemsContainer = $('#modalOrderItems');
+                    itemsContainer.empty();
+                    
+                    order.orderDetails.forEach(item => {
+                        const row = `
+                            <tr>
+                                <td>${item.orchidName}</td>
+                                <td>$${item.price.toFixed(2)}</td>
+                                <td>${item.quantity}</td>
+                                <td>$${item.subtotal.toFixed(2)}</td>
+                            </tr>
+                        `;
+                        itemsContainer.append(row);
+                    });
+                    
+                    // Show the modal
+                    $('#orderDetailsModal').modal('show');
+                },
+                error: function(xhr) {
+                    let errorMessage = 'Failed to load order details';
+                    if (xhr.responseJSON && xhr.responseJSON.error) {
+                        errorMessage = xhr.responseJSON.error;
+                    }
+                    alert(errorMessage);
+                }
+            });
+        }
+
+        // Update order status
+        $('#updateStatusBtn').click(function() {
+            const token = localStorage.getItem('jwtToken');
+            const orderId = $(this).data('orderId');
+            const newStatus = $('#statusSelect').val();
+            
+            if (!token || !orderId) return;
+
+            $.ajax({
+                url: `/api/order/UpdateStatus?id=${orderId}`,
+                type: 'PUT',
+                headers: {
+                    'Authorization': 'Bearer ' + token,
+                    'Content-Type': 'application/json'
+                },
+                data: JSON.stringify(newStatus),
+                success: function() {
+                    // Update the status in the modal
+                    $('#modalOrderStatus').text(newStatus);
+                    
+                    // Reload orders to reflect the change
+                    loadOrders();
+                    
+                    // Show success message
+                    alert('Order status updated successfully');
+                },
+                error: function(xhr) {
+                    let errorMessage = 'Failed to update order status';
+                    if (xhr.responseJSON && xhr.responseJSON.error) {
+                        errorMessage = xhr.responseJSON.error;
+                    }
+                    alert(errorMessage);
+                }
+            });
+        });
+    </script>
+}

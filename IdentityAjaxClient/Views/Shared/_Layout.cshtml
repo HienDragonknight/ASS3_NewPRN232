@@ -1,0 +1,163 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - IdentityAjaxClient</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/IdentityAjaxClient.styles.css" asp-append-version="true" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+</head>
+<body>
+    <header>
+        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
+            <div class="container-fluid">
+                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">Orchid Store</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
+                        aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
+                    <ul class="navbar-nav flex-grow-1">
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-area="" asp-controller="Product" asp-action="Index">Products</a>
+                        </li>
+                        <li class="nav-item admin-only" style="display: none;">
+                            <a class="nav-link text-dark" asp-area="" asp-controller="Order" asp-action="Index">Manage Orders</a>
+                        </li>
+                        <li class="nav-item user-only" style="display: none;">
+                            <a class="nav-link text-dark" asp-area="" asp-controller="Order" asp-action="MyOrders">My Orders</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+                        </li>
+                    </ul>
+                    <ul class="navbar-nav">
+                        <li class="nav-item" id="cartNavItem" style="display: none;">
+                            <a class="nav-link text-dark position-relative" asp-area="" asp-controller="Order" asp-action="Checkout">
+                                <i class="bi bi-cart3"></i> Cart
+                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="cartCount">0</span>
+                            </a>
+                        </li>
+                        <li class="nav-item" id="loginNavItem">
+                            <a class="nav-link text-dark" asp-area="" asp-controller="Login" asp-action="Index">Login</a>
+                        </li>
+                        <li class="nav-item" id="registerNavItem">
+                            <a class="nav-link text-dark" asp-area="" asp-controller="Register" asp-action="Index">Register</a>
+                        </li>
+                        <li class="nav-item" id="logoutNavItem" style="display: none;">
+                            <a class="nav-link text-dark" href="#" onclick="logout(); return false;">Logout</a>
+                        </li>
+                        <li class="nav-item" id="userInfoNavItem" style="display: none;">
+                            <span class="nav-link text-dark" id="userEmail"></span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+    </header>
+    <div class="container">
+        <main role="main" class="pb-3">
+            @RenderBody()
+        </main>
+    </div>
+
+    <footer class="border-top footer text-muted">
+        <div class="container">
+            &copy; 2023 - Orchid Store - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+        </div>
+    </footer>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    <script>
+        function updateNavAuth() {
+            const token = localStorage.getItem('jwtToken');
+            const userEmail = localStorage.getItem('userEmail');
+            const userRole = localStorage.getItem('userRole');
+            
+            if (token && userEmail) {
+                // User is logged in
+                $('#loginNavItem, #registerNavItem').hide();
+                $('#logoutNavItem, #userInfoNavItem, #cartNavItem').show();
+                $('#userEmail').text(userEmail + (userRole ? ` (${userRole})` : ''));
+                
+                // Show/hide role-specific elements
+                if (userRole === 'Admin') {
+                    $('.admin-only').show();
+                    $('.user-only').hide();
+                } else {
+                    $('.admin-only').hide();
+                    $('.user-only').show();
+                }
+                
+                // Update cart count
+                updateCartCount();
+            } else {
+                // User is logged out
+                $('#loginNavItem, #registerNavItem').show();
+                $('#logoutNavItem, #userInfoNavItem, #cartNavItem').hide();
+                $('.admin-only, .user-only').hide();
+            }
+        }
+        
+        function updateCartCount() {
+            const savedCart = localStorage.getItem('cart');
+            if (savedCart) {
+                try {
+                    const cart = JSON.parse(savedCart);
+                    const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
+                    $('#cartCount').text(totalItems);
+                    
+                    if (totalItems > 0) {
+                        $('#cartCount').show();
+                    } else {
+                        $('#cartCount').hide();
+                    }
+                } catch (e) {
+                    console.error('Error parsing cart from localStorage', e);
+                    $('#cartCount').text('0').hide();
+                }
+            } else {
+                $('#cartCount').text('0').hide();
+            }
+        }
+        
+        function logout() {
+            localStorage.removeItem('jwtToken');
+            localStorage.removeItem('userEmail');
+            localStorage.removeItem('userRole');
+            updateNavAuth();
+            
+            // Redirect to home page if on a protected page
+            const protectedPages = ['/Order/MyOrders', '/Order/Index'];
+            if (protectedPages.some(page => window.location.pathname.includes(page))) {
+                window.location.href = '/';
+            } else {
+                // Just refresh the current page
+                window.location.reload();
+            }
+        }
+        
+        // Initialize auth state on page load
+        $(document).ready(function() {
+            updateNavAuth();
+            
+            // Listen for storage events (for multi-tab support)
+            window.addEventListener('storage', function(e) {
+                if (e.key === 'jwtToken' || e.key === 'userEmail' || e.key === 'userRole' || e.key === 'cart') {
+                    updateNavAuth();
+                }
+            });
+            
+            // Update cart count every 2 seconds (for when cart is modified on other pages)
+            setInterval(updateCartCount, 2000);
+        });
+    </script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
