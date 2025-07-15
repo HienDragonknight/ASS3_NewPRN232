@@ -26,11 +26,12 @@ namespace IdentityAjaxClient.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Login([FromBody] LoginViewModel model)
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Index(LoginViewModel model)
         {
             if (!ModelState.IsValid)
             {
-                return BadRequest(ModelState);
+                return View(model);
             }
 
             try
@@ -41,21 +42,59 @@ namespace IdentityAjaxClient.Controllers
                     Encoding.UTF8,
                     "application/json");
 
-                var response = await client.PostAsync($"{_apiBaseUrl}/login", content);
+                var response = await client.PostAsync("https://localhost:7014/api/login", content);
+                var responseContent = await response.Content.ReadAsStringAsync();
 
                 if (response.IsSuccessStatusCode)
                 {
-                    var responseContent = await response.Content.ReadAsStringAsync();
-                    return Ok(responseContent);
+                    using var doc = JsonDocument.Parse(responseContent);
+                    var root = doc.RootElement;
+                    var token = root.GetProperty("token").GetString();
+                    var user = root.GetProperty("user");
+                    var email = user.GetProperty("email").GetString();
+                    var role = user.GetProperty("role").GetString();
+
+                    HttpContext.Session.SetString("token", token);
+                    HttpContext.Session.SetString("email", email);
+                    HttpContext.Session.SetString("role", role);
+
+                    // Redirect to home or dashboard after successful login
+                    //return RedirectToAction("Index", "Home");
+
+                    string errorMsg = "Login Success";
+                    try
+                    {
+                        using var docA = JsonDocument.Parse(responseContent);
+                        if (docA.RootElement.TryGetProperty("message", out var msgProp))
+                        {
+                            errorMsg = msgProp.GetString();
+                        }
+                    }
+                    catch { }
+                    ModelState.AddModelError(string.Empty, errorMsg);
+                    return View(model);
                 }
                 else
                 {
-                    return StatusCode((int)response.StatusCode, new { error = "Login failed" });
+                    // Try to extract error message from response
+                    string errorMsg = "Login failed";
+                    try
+                    {
+                        using var doc = JsonDocument.Parse(responseContent);
+                        if (doc.RootElement.TryGetProperty("message", out var msgProp))
+                        {
+                            errorMsg = msgProp.GetString();
+                        }
+                    }
+                    catch { }
+                    ModelState.AddModelError(string.Empty, errorMsg);
+                    return View(model);
                 }
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { error = ex.Message });
+                ModelState.AddModelError(string.Empty, ex.Message);
+                return View(model);
             }
         }
     }
