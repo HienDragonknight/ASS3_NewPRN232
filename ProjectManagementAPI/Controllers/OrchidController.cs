@@ -8,7 +8,7 @@ namespace ProjectManagementAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize] // Require authentication for all controller actions
+    //[Authorize] // Require authentication for all controller actions
     public class OrchidController : ControllerBase
     {
         private readonly OrchidRepository _repository;
@@ -39,7 +39,7 @@ namespace ProjectManagementAPI.Controllers
 
         // POST: api/orchid
         [HttpPost]
-        [Authorize(Policy = "AdminOnly")] // Only admin users can create products
+        [AllowAnonymous] // Allow unauthenticated access to view all products
         public async Task<IActionResult> Create([FromBody] OrchidCreateDto dto)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
@@ -50,7 +50,7 @@ namespace ProjectManagementAPI.Controllers
 
         // PUT: api/orchid/5
         [HttpPut("{id}")]
-        [Authorize(Policy = "AdminOnly")] // Only admin users can update products
+        [AllowAnonymous] // Allow unauthenticated access to view all products
         public async Task<IActionResult> Update(int id, [FromBody] OrchidUpdateDto dto)
         {
             if (!await _repository.OrchidExistsAsync(id))
@@ -62,7 +62,7 @@ namespace ProjectManagementAPI.Controllers
 
         // DELETE: api/orchid/5
         [HttpDelete("{id}")]
-        [Authorize(Policy = "AdminOnly")] // Only admin users can delete products
+        [AllowAnonymous] // Allow unauthenticated access to view all products
         public async Task<IActionResult> Delete(int id)
         {
             var success = await _repository.DeleteOrchidAsync(id);

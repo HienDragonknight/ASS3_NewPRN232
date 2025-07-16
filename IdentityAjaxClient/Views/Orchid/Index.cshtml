@@ -1,0 +1,184 @@
+﻿@{
+    ViewData["Title"] = "Orchids";
+}
+
+<div class="container mt-4">
+    <h1 class="mb-4">Orchid Products</h1>
+
+    <div id="orchidFormCard" class="card mb-4" style="display: none;">
+        <div class="card-header">
+            <h4 id="formTitle">Add New Orchid</h4>
+        </div>
+        <div class="card-body">
+            <form id="orchidForm">
+                <input type="hidden" id="orchidId" />
+                <div class="mb-3">
+                    <label class="form-label">Name</label>
+                    <input type="text" id="orchidName" class="form-control" required />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Price</label>
+                    <input type="number" id="price" class="form-control" required />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Image URL</label>
+                    <input type="text" id="orchidUrl" class="form-control" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Description</label>
+                    <textarea id="orchidDescription" class="form-control"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Category ID</label>
+                    <input type="number" id="categoryId" class="form-control" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Is Natural?</label>
+                    <select id="isNatural" class="form-select">
+                        <option value="true">Yes</option>
+                        <option value="false">No</option>
+                    </select>
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">Save</button>
+                    <button type="button" id="cancelBtn" class="btn btn-secondary">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="row" id="orchidList"></div>
+</div>
+
+@section Scripts {
+    <script>
+        let isAdmin = true;
+
+        $(document).ready(function () {
+            loadOrchids();
+
+            $("#orchidForm").submit(function (e) {
+                e.preventDefault();
+                saveOrchid();
+            });
+
+            $("#cancelBtn").click(resetForm);
+        });
+
+        function loadOrchids() {
+            $.ajax({
+                url: "/api/orchid",
+                type: "GET",
+                success: function (data) {
+                    renderOrchids(data);
+                },
+                error: function () {
+                    $("#orchidList").html(`<div class="col-12"><div class="alert alert-danger">Failed to load products</div></div>`);
+                }
+            });
+        }
+
+        function renderOrchids(products) {
+            const list = $("#orchidList");
+            list.empty();
+
+            if (products.length === 0) {
+                list.html('<div class="col-12"><div class="alert alert-info">No orchids found.</div></div>');
+                return;
+            }
+
+            products.forEach(p => {
+                const card = $(`
+                    <div class="col-md-4 mb-4">
+                        <div class="card h-100">
+                            <img src="${p.orchidUrl || 'https://via.placeholder.com/150'}" class="card-img-top" alt="${p.orchidName}">
+                            <div class="card-body">
+                                <h5 class="card-title">${p.orchidName}</h5>
+                                <p class="card-text">Price: $${p.price?.toFixed(2) || 'N/A'}</p>
+                                <p class="card-text">${p.orchidDescription || ''}</p>
+                            </div>
+                            ${isAdmin ? `
+                            <div class="card-footer">
+                                <button class="btn btn-sm btn-primary" onclick="editOrchid(${p.orchidId})">Edit</button>
+                                <button class="btn btn-sm btn-danger" onclick="deleteOrchid(${p.orchidId})">Delete</button>
+                            </div>` : ''}
+                        </div>
+                    </div>
+                `);
+                list.append(card);
+            });
+        }
+
+        function saveOrchid() {
+            const id = $("#orchidId").val();
+            const orchid = {
+                orchidName: $("#orchidName").val(),
+                price: parseFloat($("#price").val()),
+                orchidUrl: $("#orchidUrl").val(),
+                orchidDescription: $("#orchidDescription").val(),
+                categoryId: parseInt($("#categoryId").val()),
+                isNatural: $("#isNatural").val() === "true"
+            };
+
+            const token = localStorage.getItem("jwtToken");
+            const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+            const url = id ? `/api/orchid/${id}` : "/api/orchid";
+            const method = id ? "PUT" : "POST";
+
+            $.ajax({
+                url,
+                type: method,
+                headers,
+                contentType: "application/json",
+                data: JSON.stringify(orchid),
+                success: function () {
+                    resetForm();
+                    loadOrchids();
+                },
+                error: function (xhr) {
+                    alert("Error: " + (xhr.responseJSON?.error || "Failed to save orchid"));
+                }
+            });
+        }
+
+        function editOrchid(id) {
+            $.get(`/api/orchid/${id}`, function (p) {
+                $("#orchidId").val(p.orchidId);
+                $("#orchidName").val(p.orchidName);
+                $("#price").val(p.price);
+                $("#orchidUrl").val(p.orchidUrl);
+                $("#orchidDescription").val(p.orchidDescription);
+                $("#categoryId").val(p.categoryId);
+                $("#isNatural").val(p.isNatural?.toString());
+                $("#formTitle").text("Edit Orchid");
+                $("#orchidFormCard").show();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+        }
+
+        function deleteOrchid(id) {
+            if (!confirm("Are you sure you want to delete this orchid?")) return;
+
+            const token = localStorage.getItem("jwtToken");
+            const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+            $.ajax({
+                url: `/api/orchid/${id}`,
+                type: "DELETE",
+                headers,
+                success: loadOrchids,
+                error: function () {
+                    alert("Failed to delete orchid");
+                }
+            });
+        }
+
+        function resetForm() {
+            $("#orchidForm")[0].reset();
+            $("#orchidId").val('');
+            $("#formTitle").text("Add New Orchid");
+            $("#orchidFormCard").hide();
+        }
+    </script>
+}

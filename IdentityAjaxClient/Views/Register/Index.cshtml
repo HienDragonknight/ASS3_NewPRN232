@@ -41,30 +41,47 @@
 </div>
 
 @section Scripts {
-<script>
-    // Register form submission
-    $('#registerForm').submit(function(e) {
-        e.preventDefault();
-        const name = $('#registerName').val();
-        const email = $('#registerEmail').val();
-        const password = $('#registerPassword').val();
-        const confirmPassword = $('#confirmPassword').val();
-        
-        if (password !== confirmPassword) {
-            alert('Passwords do not match!');
-            return;
-        }
-        
-        registerAjax(email, password, name);
-    });
+    <script>
+        $('#registerForm').submit(async function (e) {
+            e.preventDefault();
 
-    // Check if user is already logged in
-    $(document).ready(function() {
-        const token = localStorage.getItem('jwtToken');
-        if (token) {
-            // Redirect to home page if already logged in
-            window.location.href = '/';
-        }
-    });
-</script>
+            const name = $('#registerName').val();
+            const email = $('#registerEmail').val();
+            const password = $('#registerPassword').val();
+            const confirmPassword = $('#confirmPassword').val();
+
+            if (password !== confirmPassword) {
+                alert('Passwords do not match!');
+                return;
+            }
+
+            try {
+                const response = await fetch("/Register/Register", {
+                    method: "POST",
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: email,
+                        password: password,
+                        confirmPassword: confirmPassword,
+                        name: name
+                    })
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    alert("Registration failed: " + (result.error || "Unknown error"));
+                    return;
+                }
+
+                alert("Registration successful!");
+                window.location.href = "/Login";
+            } catch (err) {
+                alert("Error: " + err.message);
+            }
+        });
+    </script>
+
 }

@@ -1,15 +1,15 @@
-@{
+﻿@{
     ViewData["Title"] = "Products";
 }
 
 <div class="container">
     <h1>Products</h1>
-    
-    <div id="authStatus" class="alert alert-info">
-        Checking authentication status...
+
+    <div class="mb-3">
+        <button class="btn btn-success" id="showFormBtn">Add New Product</button>
     </div>
-    
-    <div id="productFormCard" class="card mb-4 admin-only" style="display: none;">
+
+    <div id="productFormCard" class="card mb-4 admin-only" style="display:none;">
         <div class="card-header">
             <h2 id="formTitle">Add New Product</h2>
         </div>
@@ -21,164 +21,91 @@
                     <input type="text" class="form-control" id="orchidName" required>
                 </div>
                 <div class="mb-3">
-                    <label for="unitPrice" class="form-label">Price</label>
-                    <input type="number" class="form-control" id="unitPrice" step="0.01" min="0" required>
+                    <label for="price" class="form-label">Price</label>
+                    <input type="number" class="form-control" id="price" step="0.01" min="0" required>
                 </div>
                 <div class="mb-3">
-                    <label for="availableStock" class="form-label">Available Stock</label>
-                    <input type="number" class="form-control" id="availableStock" min="0" required>
+                    <label for="orchidUrl" class="form-label">Image URL</label>
+                    <input type="text" class="form-control" id="orchidUrl" required>
                 </div>
                 <div class="mb-3">
-                    <label for="description" class="form-label">Description</label>
-                    <textarea class="form-control" id="description" rows="3"></textarea>
+                    <label for="categoryId" class="form-label">Category ID</label>
+                    <input type="number" class="form-control" id="categoryId" required>
+                </div>
+                <div class="mb-3">
+                    <label for="orchidDescription" class="form-label">Description</label>
+                    <textarea class="form-control" id="orchidDescription" rows="3"></textarea>
                 </div>
                 <button type="submit" class="btn btn-primary">Save</button>
                 <button type="button" id="cancelBtn" class="btn btn-secondary">Cancel</button>
             </form>
         </div>
     </div>
-    
-    <div class="row" id="productList">
-        <!-- Products will be loaded here -->
-    </div>
-    
-    <!-- Product Details Modal -->
-    <div class="modal fade" id="productDetailsModal" tabindex="-1" aria-labelledby="productDetailsModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="productDetailsModalLabel">Product Details</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <h3 id="modalProductName"></h3>
-                    <p><strong>Price:</strong> $<span id="modalProductPrice"></span></p>
-                    <p><strong>Available Stock:</strong> <span id="modalProductStock"></span></p>
-                    <p><strong>Description:</strong> <span id="modalProductDescription"></span></p>
-                    
-                    <div class="mt-3">
-                        <label for="quantityInput" class="form-label">Quantity:</label>
-                        <div class="input-group mb-3">
-                            <button class="btn btn-outline-secondary" type="button" id="decreaseQuantity">-</button>
-                            <input type="number" class="form-control text-center" id="quantityInput" value="1" min="1">
-                            <button class="btn btn-outline-secondary" type="button" id="increaseQuantity">+</button>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-primary" id="addToCartBtn">Add to Cart</button>
-                </div>
-            </div>
-        </div>
-    </div>
+
+    <div class="row" id="productList"></div>
 </div>
 
 @section Scripts {
     <script>
-        let currentProduct = null;
-        let isAdmin = false;
-        
-        $(document).ready(function() {
+        let isAdmin = true;
+
+        $(document).ready(function () {
             loadProducts();
-            updateAuthUI();
-            
-            // Form submission
-            $("#productForm").submit(function(e) {
+
+            $(document).on('click', '#showFormBtn', function () {
+                $('#productFormCard').slideDown();
+            });
+
+            $(document).on('click', '#cancelBtn', function () {
+                resetForm();
+                $('#productFormCard').slideUp();
+            });
+
+            $(document).on('submit', '#productForm', function (e) {
                 e.preventDefault();
                 saveProduct();
             });
-            
-            // Cancel button
-            $("#cancelBtn").click(function() {
-                resetForm();
-            });
-            
-            // Quantity controls in modal
-            $("#increaseQuantity").click(function() {
-                const input = $("#quantityInput");
-                const currentVal = parseInt(input.val());
-                input.val(currentVal + 1);
-            });
-            
-            $("#decreaseQuantity").click(function() {
-                const input = $("#quantityInput");
-                const currentVal = parseInt(input.val());
-                if (currentVal > 1) {
-                    input.val(currentVal - 1);
-                }
-            });
-            
-            // Add to cart button
-            $("#addToCartBtn").click(function() {
-                addToCart();
-            });
         });
-        
-        function updateAuthUI() {
-            const token = localStorage.getItem('jwtToken');
-            const userEmail = localStorage.getItem('userEmail');
-            const userRole = localStorage.getItem('userRole');
-            
-            if (token && userEmail) {
-                // User is logged in
-                $('#authStatus').removeClass('alert-warning alert-info').addClass('alert-success')
-                    .html(`Logged in as <strong>${userEmail}</strong>` + 
-                          (userRole ? ` (${userRole})` : ''));
-                
-                // Check if user is admin
-                isAdmin = userRole === 'Admin';
-                if (isAdmin) {
-                    $('#productFormCard').show();
-                } else {
-                    $('#productFormCard').hide();
-                }
-            } else {
-                // User is logged out
-                $('#authStatus').removeClass('alert-success alert-info').addClass('alert-warning')
-                    .html('You are not logged in. Some features may be restricted.');
-                $('#productFormCard').hide();
-                isAdmin = false;
-            }
-        }
-        
+
         function loadProducts() {
             $.ajax({
                 url: '/api/product/GetAll',
                 type: 'GET',
-                success: function(data) {
-                    renderProducts(data);
+                success: function (products) {
+                    renderProducts(products);
                 },
-                error: function(xhr) {
-                    console.error('Error loading products:', xhr);
+                error: function () {
                     $('#productList').html('<div class="col-12"><div class="alert alert-danger">Error loading products</div></div>');
                 }
             });
         }
-        
+
         function renderProducts(products) {
             const productList = $('#productList');
             productList.empty();
-            
-            if (products.length === 0) {
+
+            if (!products || products.length === 0) {
                 productList.html('<div class="col-12"><div class="alert alert-info">No products available</div></div>');
                 return;
             }
-            
-            products.forEach(function(product) {
+
+            products.forEach(function (product) {
+                if (!product) return;
+
                 const card = $('<div class="col-md-4 mb-4"></div>');
                 const cardContent = `
                     <div class="card h-100">
+                        <img src="${product.orchidUrl}" class="card-img-top" alt="${product.orchidName}">
                         <div class="card-body">
                             <h5 class="card-title">${product.orchidName}</h5>
-                            <p class="card-text">$${product.unitPrice.toFixed(2)}</p>
-                            <p class="card-text">Stock: ${product.availableStock}</p>
+                            <p class="card-text">Price: $${product.price?.toFixed(2) ?? 'N/A'}</p>
+                            <p class="card-text">${product.orchidDescription ?? ''}</p>
                         </div>
                         <div class="card-footer">
-                            ${isAdmin ? 
-                                `<button class="btn btn-sm btn-primary me-2" onclick="editProduct(${product.id})">Edit</button>
-                                 <button class="btn btn-sm btn-danger me-2" onclick="deleteProduct(${product.id})">Delete</button>` : 
-                                `<button class="btn btn-sm btn-info" onclick="viewProductDetails(${product.id})">View Details</button>`
+                            ${isAdmin ?
+                                `<button class="btn btn-sm btn-primary me-2 edit-btn" data-id="${product.orchidId}">Edit</button>
+                                 <button class="btn btn-sm btn-danger" onclick="if(confirm('Are you sure you want to delete this product?')) deleteProduct(${product.orchidId})">Delete</button>` :
+                                `<button class="btn btn-sm btn-info">View Details</button>`
                             }
                         </div>
                     </div>
@@ -186,188 +113,88 @@
                 card.html(cardContent);
                 productList.append(card);
             });
-        }
-        
-        function saveProduct() {
-            const productId = $('#productId').val();
-            const product = {
-                orchidName: $('#orchidName').val(),
-                unitPrice: parseFloat($('#unitPrice').val()),
-                availableStock: parseInt($('#availableStock').val()),
-                description: $('#description').val()
-            };
-            
-            const token = localStorage.getItem('jwtToken');
-            if (!token) {
-                alert('You must be logged in to perform this action');
-                return;
-            }
-            
-            const url = productId ? `/api/product/Update/${productId}` : '/api/product/Create';
-            const method = productId ? 'PUT' : 'POST';
-            
-            $.ajax({
-                url: url,
-                type: method,
-                headers: {
-                    'Authorization': 'Bearer ' + token,
-                    'Content-Type': 'application/json'
-                },
-                data: JSON.stringify(product),
-                success: function() {
-                    resetForm();
-                    loadProducts();
-                },
-                error: function(xhr) {
-                    let errorMessage = 'Failed to save product';
-                    if (xhr.status === 401) {
-                        errorMessage = 'You are not authorized to perform this action';
-                    } else if (xhr.responseJSON && xhr.responseJSON.error) {
-                        errorMessage = xhr.responseJSON.error;
-                    }
-                    alert(errorMessage);
-                }
+
+            // Wire up edit buttons
+            $('.edit-btn').click(function () {
+                const id = $(this).data('id');
+                editProduct(id);
             });
         }
-        
+
         function editProduct(id) {
             $.ajax({
                 url: `/api/product/GetById/${id}`,
                 type: 'GET',
-                success: function(product) {
-                    $('#productId').val(product.id);
+                success: function (product) {
+                    $('#productId').val(product.orchidId);
                     $('#orchidName').val(product.orchidName);
-                    $('#unitPrice').val(product.unitPrice);
-                    $('#availableStock').val(product.availableStock);
-                    $('#description').val(product.description);
+                    $('#price').val(product.price);
+                    $('#orchidUrl').val(product.orchidUrl);
+                    $('#orchidDescription').val(product.orchidDescription);
+                    $('#categoryId').val(product.categoryId);
                     $('#formTitle').text('Edit Product');
-                    $('html, body').animate({ scrollTop: 0 }, 'slow');
+                    $('#productFormCard').slideDown();
                 },
-                error: function(xhr) {
-                    console.error('Error loading product details:', xhr);
-                    alert('Failed to load product details');
+                error: function () {
+                    alert('Failed to load product data');
                 }
             });
         }
-        
-        function deleteProduct(id) {
-            if (!confirm('Are you sure you want to delete this product?')) {
-                return;
-            }
-            
-            const token = localStorage.getItem('jwtToken');
-            if (!token) {
-                alert('You must be logged in to perform this action');
-                return;
-            }
-            
+
+        function saveProduct() {
+            const productId = $('#productId').val();
+            const product = {
+                orchidName: $('#orchidName').val(),
+                price: parseFloat($('#price').val()),
+                orchidUrl: $('#orchidUrl').val(),
+                orchidDescription: $('#orchidDescription').val(),
+                categoryId: parseInt($('#categoryId').val())
+            };
+
+            const url = productId ? `/api/product/Update/${productId}` : '/api/product/Create';
+            const method = productId ? 'PUT' : 'POST';
+
             $.ajax({
-                url: `/api/product/Delete/${id}`,
-                type: 'DELETE',
-                headers: {
-                    'Authorization': 'Bearer ' + token
-                },
-                success: function() {
+                url: url,
+                type: method,
+                contentType: 'application/json',
+                data: JSON.stringify(product),
+                success: function () {
+                    resetForm();
+                    $('#productFormCard').slideUp();
                     loadProducts();
                 },
-                error: function(xhr) {
-                    let errorMessage = 'Failed to delete product';
-                    if (xhr.status === 401) {
-                        errorMessage = 'You are not authorized to perform this action';
-                    } else if (xhr.responseJSON && xhr.responseJSON.error) {
+                error: function (xhr) {
+                    let errorMessage = 'Failed to save product';
+                    if (xhr.responseJSON && xhr.responseJSON.error) {
                         errorMessage = xhr.responseJSON.error;
                     }
                     alert(errorMessage);
                 }
             });
         }
-        
+
+        function deleteProduct(id) {
+            $.ajax({
+                url: `/api/product/Delete/${id}`,
+                type: 'DELETE',
+                success: function () {
+                    loadProducts();
+                },
+                error: function (xhr) {
+                    let errorMessage = 'Failed to delete product';
+                    if (xhr.responseJSON && xhr.responseJSON.error) {
+                        errorMessage = xhr.responseJSON.error;
+                    }
+                    alert(errorMessage);
+                }
+            });
+        }
+
         function resetForm() {
             $('#productId').val('');
             $('#productForm')[0].reset();
             $('#formTitle').text('Add New Product');
-        }
-        
-        function viewProductDetails(id) {
-            $.ajax({
-                url: `/api/product/GetById/${id}`,
-                type: 'GET',
-                success: function(product) {
-                    currentProduct = product;
-                    $('#modalProductName').text(product.orchidName);
-                    $('#modalProductPrice').text(product.unitPrice.toFixed(2));
-                    $('#modalProductStock').text(product.availableStock);
-                    $('#modalProductDescription').text(product.description || 'No description available');
-                    $('#quantityInput').val(1);
-                    $('#productDetailsModal').modal('show');
-                },
-                error: function(xhr) {
-                    console.error('Error loading product details:', xhr);
-                    alert('Failed to load product details');
-                }
-            });
-        }
-        
-        function addToCart() {
-            if (!currentProduct) return;
-            
-            const quantity = parseInt($('#quantityInput').val());
-            if (isNaN(quantity) || quantity < 1) {
-                alert('Please enter a valid quantity');
-                return;
-            }
-            
-            if (quantity > currentProduct.availableStock) {
-                alert('Cannot add more than available stock');
-                return;
-            }
-            
-            // Get existing cart or initialize new one
-            let cart = [];
-            const savedCart = localStorage.getItem('cart');
-            if (savedCart) {
-                try {
-                    cart = JSON.parse(savedCart);
-                } catch (e) {
-                    console.error('Error parsing cart from localStorage', e);
-                }
-            }
-            
-            // Check if product already in cart
-            const existingItemIndex = cart.findIndex(item => item.id === currentProduct.id);
-            
-            if (existingItemIndex >= 0) {
-                // Update quantity if product already in cart
-                cart[existingItemIndex].quantity += quantity;
-                if (cart[existingItemIndex].quantity > currentProduct.availableStock) {
-                    cart[existingItemIndex].quantity = currentProduct.availableStock;
-                    alert(`Quantity adjusted to maximum available stock (${currentProduct.availableStock})`);
-                }
-            } else {
-                // Add new item to cart
-                cart.push({
-                    id: currentProduct.id,
-                    name: currentProduct.orchidName,
-                    price: currentProduct.unitPrice,
-                    quantity: quantity
-                });
-            }
-            
-            // Save cart to localStorage
-            localStorage.setItem('cart', JSON.stringify(cart));
-            
-            // Close modal and show confirmation
-            $('#productDetailsModal').modal('hide');
-            alert(`${quantity} ${currentProduct.orchidName}(s) added to cart`);
-            
-            // Update cart count in UI if you have a cart indicator
-            updateCartCount(cart);
-        }
-        
-        function updateCartCount(cart) {
-            // If you have a cart indicator in your UI, update it here
-            const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
-            // Example: $('#cartCount').text(totalItems);
         }
     </script>
 }

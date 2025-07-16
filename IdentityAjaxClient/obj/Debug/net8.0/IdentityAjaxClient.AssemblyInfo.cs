@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("IdentityAjaxClient")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9f8a6cb610b135105137379cdf448fa08a7717d3")]
 [assembly: System.Reflection.AssemblyProductAttribute("IdentityAjaxClient")]
 [assembly: System.Reflection.AssemblyTitleAttribute("IdentityAjaxClient")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

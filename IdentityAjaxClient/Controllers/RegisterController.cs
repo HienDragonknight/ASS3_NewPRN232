@@ -15,7 +15,7 @@ namespace IdentityAjaxClient.Controllers
         {
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
-            _apiBaseUrl = _configuration["ApiSettings:BaseUrl"] ?? "http://localhost:5232/api";
+            _apiBaseUrl = _configuration["ApiSettings:BaseUrl"] ?? "";
         }
 
         [HttpGet]
@@ -29,39 +29,42 @@ namespace IdentityAjaxClient.Controllers
         {
             if (!ModelState.IsValid)
             {
-                return BadRequest(ModelState);
+                return BadRequest("Invalid registration data.");
             }
 
             try
             {
                 var client = _httpClientFactory.CreateClient();
+
+                var payload = new
+                {
+                    email = model.Email,
+                    password = model.Password,
+                    accountName = model.Name,
+                    roleId = 2
+                };
+
                 var content = new StringContent(
-                    JsonSerializer.Serialize(new { 
-                        email = model.Email, 
-                        password = model.Password,
-                        accountName = model.Name,
-                        roleId = 2 // Default role for regular users
-                    }),
+                    JsonSerializer.Serialize(payload),
                     Encoding.UTF8,
                     "application/json");
 
-                var response = await client.PostAsync($"{_apiBaseUrl}/register", content);
+                var response = await client.PostAsync("https://localhost:7014/api/register", content);
 
                 if (response.IsSuccessStatusCode)
                 {
                     var responseContent = await response.Content.ReadAsStringAsync();
                     return Ok(responseContent);
                 }
-                else
-                {
-                    var errorContent = await response.Content.ReadAsStringAsync();
-                    return StatusCode((int)response.StatusCode, new { error = errorContent });
-                }
+
+                var errorContent = await response.Content.ReadAsStringAsync();
+                return StatusCode((int)response.StatusCode, new { error = errorContent });
             }
             catch (Exception ex)
             {
                 return StatusCode(500, new { error = ex.Message });
             }
         }
+
     }
 }

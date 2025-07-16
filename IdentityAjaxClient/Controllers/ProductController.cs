@@ -1,6 +1,5 @@
 using IdentityAjaxClient.Models;
 using Microsoft.AspNetCore.Mvc;
-using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 
@@ -16,7 +15,7 @@ namespace IdentityAjaxClient.Controllers
         {
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
-            _apiBaseUrl = _configuration["ApiSettings:BaseUrl"] ?? "http://localhost:5232/api";
+            _apiBaseUrl = _configuration["ApiSettings:BaseUrl"] ?? "https://localhost:7014/api";
         }
 
         [HttpGet]
@@ -25,8 +24,7 @@ namespace IdentityAjaxClient.Controllers
             return View();
         }
 
-        [HttpGet]
-        [Route("api/product/GetAll")]
+        [HttpGet("api/product/GetAll")]
         public async Task<IActionResult> GetAll()
         {
             try
@@ -36,13 +34,15 @@ namespace IdentityAjaxClient.Controllers
 
                 if (response.IsSuccessStatusCode)
                 {
-                    var content = await response.Content.ReadAsStringAsync();
-                    return Ok(content);
+                    var stream = await response.Content.ReadAsStreamAsync();
+                    var products = await JsonSerializer.DeserializeAsync<List<ProductViewModel>>(stream, new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    });
+                    return Ok(products);
                 }
-                else
-                {
-                    return StatusCode((int)response.StatusCode, new { error = "Failed to retrieve products" });
-                }
+
+                return StatusCode((int)response.StatusCode, new { error = "Failed to retrieve products" });
             }
             catch (Exception ex)
             {
@@ -50,8 +50,7 @@ namespace IdentityAjaxClient.Controllers
             }
         }
 
-        [HttpGet]
-        [Route("api/product/GetById/{id}")]
+        [HttpGet("api/product/GetById/{id}")]
         public async Task<IActionResult> GetById(int id)
         {
             try
@@ -62,16 +61,13 @@ namespace IdentityAjaxClient.Controllers
                 if (response.IsSuccessStatusCode)
                 {
                     var content = await response.Content.ReadAsStringAsync();
-                    return Ok(content);
+                    var data = JsonSerializer.Deserialize<ProductViewModel>(content, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    return Ok(data);
                 }
-                else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-                {
-                    return NotFound(new { error = "Product not found" });
-                }
-                else
-                {
-                    return StatusCode((int)response.StatusCode, new { error = "Failed to retrieve product" });
-                }
+
+                return response.StatusCode == System.Net.HttpStatusCode.NotFound
+                    ? NotFound(new { error = "Product not found" })
+                    : StatusCode((int)response.StatusCode, new { error = "Failed to retrieve product" });
             }
             catch (Exception ex)
             {
@@ -79,43 +75,27 @@ namespace IdentityAjaxClient.Controllers
             }
         }
 
-        [HttpPost]
-        [Route("api/product/Create")]
+        [HttpPost("api/product/Create")]
         public async Task<IActionResult> Create([FromBody] ProductViewModel model)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
             try
             {
                 var client = _httpClientFactory.CreateClient();
-                
-                // Get token from request headers
-                string authHeader = Request.Headers["Authorization"];
-                if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer "))
+
+                var payload = new
                 {
-                    string token = authHeader.Substring("Bearer ".Length);
-                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-                }
+                    orchidName = model.OrchidName,
+                    price = model.Price,
+                    orchidUrl = model.OrchidUrl,
+                    orchidDescription = model.OrchidDescription,
+                    isNatural = true,
+                    categoryId = model.CategoryId
+                };
 
-                var content = new StringContent(
-                    JsonSerializer.Serialize(model),
-                    Encoding.UTF8,
-                    "application/json");
-
+                var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
                 var response = await client.PostAsync($"{_apiBaseUrl}/orchid", content);
 
-                if (response.IsSuccessStatusCode)
-                {
-                    var responseContent = await response.Content.ReadAsStringAsync();
-                    return Ok(responseContent);
-                }
-                else
-                {
-                    return StatusCode((int)response.StatusCode, new { error = "Failed to create product" });
-                }
+                return await HandleResponse(response);
             }
             catch (Exception ex)
             {
@@ -123,47 +103,30 @@ namespace IdentityAjaxClient.Controllers
             }
         }
 
-        [HttpPut]
-        [Route("api/product/Update/{id}")]
+
+        [HttpPut("api/product/Update/{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] ProductViewModel model)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
+         
 
             try
             {
                 var client = _httpClientFactory.CreateClient();
-                
-                // Get token from request headers
-                string authHeader = Request.Headers["Authorization"];
-                if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer "))
+
+                var payload = new
                 {
-                    string token = authHeader.Substring("Bearer ".Length);
-                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-                }
+                    orchidName = model.OrchidName,
+                    price = model.Price,
+                    orchidUrl = model.OrchidUrl,
+                    orchidDescription = model.OrchidDescription,
+                    IsNatural = true,
+                    categoryId = model.CategoryId
+                };
 
-                var content = new StringContent(
-                    JsonSerializer.Serialize(model),
-                    Encoding.UTF8,
-                    "application/json");
-
+                var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
                 var response = await client.PutAsync($"{_apiBaseUrl}/orchid/{id}", content);
 
-                if (response.IsSuccessStatusCode)
-                {
-                    var responseContent = await response.Content.ReadAsStringAsync();
-                    return Ok(responseContent);
-                }
-                else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-                {
-                    return NotFound(new { error = "Product not found" });
-                }
-                else
-                {
-                    return StatusCode((int)response.StatusCode, new { error = "Failed to update product" });
-                }
+                return await HandleResponse(response);
             }
             catch (Exception ex)
             {
@@ -171,41 +134,35 @@ namespace IdentityAjaxClient.Controllers
             }
         }
 
-        [HttpDelete]
-        [Route("api/product/Delete/{id}")]
+        [HttpDelete("api/product/Delete/{id}")]
         public async Task<IActionResult> Delete(int id)
         {
             try
             {
                 var client = _httpClientFactory.CreateClient();
-                
-                // Get token from request headers
-                string authHeader = Request.Headers["Authorization"];
-                if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer "))
-                {
-                    string token = authHeader.Substring("Bearer ".Length);
-                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-                }
-
                 var response = await client.DeleteAsync($"{_apiBaseUrl}/orchid/{id}");
 
                 if (response.IsSuccessStatusCode)
-                {
                     return Ok(new { success = true });
-                }
-                else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-                {
-                    return NotFound(new { error = "Product not found" });
-                }
-                else
-                {
-                    return StatusCode((int)response.StatusCode, new { error = "Failed to delete product" });
-                }
+
+                return response.StatusCode == System.Net.HttpStatusCode.NotFound
+                    ? NotFound(new { error = "Product not found" })
+                    : StatusCode((int)response.StatusCode, new { error = "Failed to delete product" });
             }
             catch (Exception ex)
             {
                 return StatusCode(500, new { error = ex.Message });
             }
+        }
+
+        private async Task<IActionResult> HandleResponse(HttpResponseMessage response)
+        {
+            var content = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode)
+                return Ok(content);
+
+            return StatusCode((int)response.StatusCode, new { error = content });
         }
     }
 }

@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "TVTz0vz32M8=",
+  "dgSpecHash": "IeQP7OjZwCM=",
   "success": true,
-  "projectFilePath": "C:\\Users\\Hp\\Desktop\\_code_hien\\Lab03_IdetityAjax ASP.NETCoreWebAPI\\BusinessObjects\\BusinessObjects.csproj",
+  "projectFilePath": "C:\\Users\\Hp\\Desktop\\_code_hien\\Lab03_IdetityAjax ASP.NETCoreWebAPI\\ASS3_NewPRN232\\BusinessObjects\\BusinessObjects.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Hp\\.nuget\\packages\\azure.core\\1.35.0\\azure.core.1.35.0.nupkg.sha512",
     "C:\\Users\\Hp\\.nuget\\packages\\azure.identity\\1.10.3\\azure.identity.1.10.3.nupkg.sha512",

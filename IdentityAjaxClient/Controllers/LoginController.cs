@@ -1,4 +1,4 @@
-using IdentityAjaxClient.Models;
+﻿using IdentityAjaxClient.Models;
 using Microsoft.AspNetCore.Mvc;
 using System.Net.Http;
 using System.Text;
@@ -44,6 +44,7 @@ namespace IdentityAjaxClient.Controllers
 
                 var response = await client.PostAsync("https://localhost:7014/api/login", content);
                 var responseContent = await response.Content.ReadAsStringAsync();
+               
 
                 if (response.IsSuccessStatusCode)
                 {
@@ -53,27 +54,10 @@ namespace IdentityAjaxClient.Controllers
                     var user = root.GetProperty("user");
                     var email = user.GetProperty("email").GetString();
                     var role = user.GetProperty("role").GetString();
-
-                    HttpContext.Session.SetString("token", token);
-                    HttpContext.Session.SetString("email", email);
-                    HttpContext.Session.SetString("role", role);
-
-                    // Redirect to home or dashboard after successful login
-                    //return RedirectToAction("Index", "Home");
-
-                    string errorMsg = "Login Success";
-                    try
-                    {
-                        using var docA = JsonDocument.Parse(responseContent);
-                        if (docA.RootElement.TryGetProperty("message", out var msgProp))
-                        {
-                            errorMsg = msgProp.GetString();
-                        }
-                    }
-                    catch { }
-                    ModelState.AddModelError(string.Empty, errorMsg);
-                    return View(model);
+                
+                    return RedirectToAction("Index", "Product");
                 }
+
                 else
                 {
                     // Try to extract error message from response

@@ -14,15 +14,15 @@ namespace IdentityAjaxClient.Models
         public decimal Price { get; set; }
 
         [Required(ErrorMessage = "Image URL is required")]
-        public string Image { get; set; }
+        public string OrchidUrl { get; set; }
 
         [Required(ErrorMessage = "Description is required")]
-        public string Description { get; set; }
-
-        [Required(ErrorMessage = "Status is required")]
-        public string Status { get; set; }
+        public string OrchidDescription { get; set; }
 
         [Required(ErrorMessage = "Category ID is required")]
         public int CategoryId { get; set; }
+
+        public bool IsNatural { get; set; } = true;
     }
+
 }
